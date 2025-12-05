@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>孤獨的釣魚大亨</title>
+    <style>
+        :root {
+            --sky-color: #87CEEB;
+            --sea-color: #1E90FF;
+            --wood-color: #8B4513;
+            --btn-color: #2E8B57;
+            --btn-hover: #3CB371;
+            --panel-bg: rgba(255, 255, 255, 0.9);
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(to bottom, var(--sky-color) 60%, var(--sea-color) 60%);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            user-select: none;
+        }
+
+        /* 遊戲主容器 */
+        #game-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            max-width: 600px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        /* 視覺場景區域 */
+        .scene {
+            flex-grow: 1;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* 太陽 */
+        .sun {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            background: #FFD700;
+            border-radius: 50%;
+            box-shadow: 0 0 20px #FFD700;
+        }
+
+        /* 海洋波浪裝飾 */
+        .ocean-line {
+            position: absolute;
+            bottom: 38%;
+            width: 100%;
+            height: 20px;
+            background: rgba(255,255,255,0.2);
+            animation: wave 3s infinite ease-in-out;
+        }
+
+        /* 船與人 (動畫容器) */
+        .boat-container {
+            position: absolute;
+            bottom: 35%; 
+            animation: bobbing 2.5s infinite ease-in-out;
+            text-align: center;
+        }
+
+        .fisherman {
+            font-size: 60px;
+            position: relative;
+            z-index: 2;
+            top: 10px;
+        }
+
+        .rod {
+            position: absolute;
+            width: 100px;
+            height: 2px;
+            background: #333;
+            top: 30px;
+            left: 40px;
+            transform: rotate(-30deg);
+            transform-origin: left;
+            transition: transform 0.2s;
+        }
+        
+        .rod.casting {
+            transform: rotate(-10deg);
+        }
+
+        .boat {
+            width: 120px;
+            height: 0;
+            border-top: 40px solid var(--wood-color);
+            border-left: 20px solid transparent;
+            border-right: 20px solid transparent;
+            position: relative;
+            z-index: 1;
+        }
+
+        .boat::after {
+            content: "LEVEL " attr(data-level);
+            position: absolute;
+            top: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+            text-shadow: 1px 1px 2px black;
+        }
+
+        /* UI 面板 */
+        .ui-panel {
+            background-color: var(--panel-bg);
+            padding: 20px;
+            border-radius: 20px 20px 0 0;
+            box-shadow: 0 -5px 20px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            z-index: 10;
+        }
+
+        .stats-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f0f0f0;
+            padding: 10px;
+            border-radius: 10px;
+        }
+
+        .money { color: #d35400; font-weight: bold; font-size: 1.2em; }
+        .inventory-count { color: #2980b9; font-weight: bold; }
+
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        button {
+            border: none;
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.1s, background 0.2s;
+        }
+
+        button:active { transform: scale(0.95); }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+
+        .btn-fish {
+            background-color: var(--btn-color);
+            color: white;
+            grid-column: span 2;
+            font-size: 1.2rem;
+        }
+        .btn-fish:hover { background-color: var(--btn-hover); }
+
+        .btn-sell { background-color: #e67e22; color: white; }
+        .btn-sell:hover { background-color: #d35400; }
+
+        .btn-upgrade { background-color: #8e44ad; color: white; }
+        .btn-upgrade:hover { background-color: #9b59b6; }
+
+        /* 訊息日誌 */
+        .log-area {
+            height: 80px;
+            overflow-y: auto;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 5px;
+            font-size: 0.9rem;
+            list-style: none;
+            margin: 0;
+        }
+
+        .log-item { margin-bottom: 4px; border-bottom: 1px dashed #eee; padding-bottom: 2px;}
+        .rarity-common { color: #7f8c8d; }
+        .rarity-uncommon { color: #27ae60; }
+        .rarity-rare { color: #2980b9; font-weight: bold; }
+        .rarity-legendary { color: #c0392b; font-weight: bold; text-shadow: 0px 0px 5px gold; }
+
+        /* 動畫 Keyframes */
+        @keyframes bobbing {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        @keyframes wave {
+            0% { transform: translateX(-10px); }
+            50% { transform: translateX(10px); }
+            100% { transform: translateX(-10px); }
+        }
+
+        /* 浮動文字特效 */
+        .floating-text {
+            position: absolute;
+            color: gold;
+            font-weight: bold;
+            font-size: 20px;
+            text-shadow: 1px 1px 0 #000;
+            pointer-events: none;
+            animation: floatUp 1s forwards;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 100;
+        }
+
+        @keyframes floatUp {
+            0% { opacity: 1; top: 50%; }
+            100% { opacity: 0; top: 20%; }
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        
+        <div class="scene">
+            <div class="sun"></div>
+            <div class="ocean-line"></div>
+            
+            <div class="boat-container">
+                <div class="fisherman">🎣</div>
+                <div class="rod" id="rod"></div>
+                <div class="boat" id="boat-visual" data-level="1"></div>
+            </div>
+            
+            <div id="float-area"></div>
+        </div>
+
+        <div class="ui-panel">
+            <div class="stats-row">
+                <div>💰 金幣: <span id="money-display" class="money">0</span></div>
+                <div>🐟 魚簍: <span id="inventory-display" class="inventory-count">0/20</span></div>
+            </div>
+            
+            <ul id="log-list" class="log-area">
+                <li class="log-item">歡迎來到海上！點擊「開始釣魚」試試手氣。</li>
+            </ul>
+
+            <div class="controls">
+                <button id="btn-fish" class="btn-fish" onclick="startFishing()">🎣 開始釣魚</button>
+                <button id="btn-sell" class="btn-sell" onclick="sellFish()">💰 賣掉魚貨</button>
+                <button id="btn-upgrade" class="btn-upgrade" onclick="upgradeRod()">🔨 升級魚竿 ($50)</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 遊戲資料 ---
+        const gameState = {
+            money: 0,
+            rodLevel: 1,
+            inventory: [],
+            maxInventory: 20,
+            isFishing: false
+        };
+
+        const upgradeBaseCost = 50;
+
+        // 魚種定義：名稱、價值、稀有度權重(越低越稀有)
+        const fishTypes = [
+            { name: "舊鞋子", value: 1, rarity: "common", weight: 30 },
+            { name: "海藻", value: 2, rarity: "common", weight: 25 },
+            { name: "沙丁魚", value: 10, rarity: "common", weight: 20 },
+            { name: "小丑魚", value: 25, rarity: "uncommon", weight: 15 },
+            { name: "鮪魚", value: 50, rarity: "uncommon", weight: 10 },
+            { name: "發光水母", value: 150, rarity: "rare", weight: 5 }, // 稀有
+            { name: "皇帶魚", value: 300, rarity: "rare", weight: 3 }, // 稀有
+            { name: "黃金鯊魚", value: 1000, rarity: "legendary", weight: 1 } // 傳說
+        ];
+
+        // --- DOM 元素 ---
+        const moneyEl = document.getElementById('money-display');
+        const invEl = document.getElementById('inventory-display');
+        const logList = document.getElementById('log-list');
+        const btnFish = document.getElementById('btn-fish');
+        const btnUpgrade = document.getElementById('btn-upgrade');
+        const boatVisual = document.getElementById('boat-visual');
+        const rodVisual = document.getElementById('rod');
+
+        // --- 核心功能 ---
+
+        function updateUI() {
+            moneyEl.textContent = gameState.money;
+            invEl.textContent = `${gameState.inventory.length}/${gameState.maxInventory}`;
+            
+            // 升級按鈕文字更新
+            const upgradeCost = Math.floor(upgradeBaseCost * Math.pow(1.5, gameState.rodLevel - 1));
+            btnUpgrade.textContent = `🔨 升級魚竿 (Lv.${gameState.rodLevel + 1}) - $${upgradeCost}`;
+            
+            // 檢查是否可升級
+            if (gameState.money >= upgradeCost) {
+                btnUpgrade.disabled = false;
+            } else {
+                btnUpgrade.disabled = true;
+            }
+
+            boatVisual.setAttribute('data-level', gameState.rodLevel);
+        }
+
+        function logMessage(msg, type = "normal") {
+            const li = document.createElement('li');
+            li.textContent = msg;
+            li.className = `log-item rarity-${type}`;
+            logList.prepend(li); // 新訊息在最上面
+        }
+
+        function showFloatingText(text, color = "white") {
+            const el = document.createElement('div');
+            el.className = 'floating-text';
+            el.textContent = text;
+            el.style.color = color;
+            document.getElementById('float-area').appendChild(el);
+            setTimeout(() => el.remove(), 1000);
+        }
+
+        // --- 釣魚邏輯 ---
+
+        function startFishing() {
+            if (gameState.isFishing) return;
+            if (gameState.inventory.length >= gameState.maxInventory) {
+                alert("魚簍滿了！請先賣掉魚貨。");
+                return;
+            }
+
+            gameState.isFishing = true;
+            btnFish.disabled = true;
+            btnFish.textContent = "🌊 等待魚上鉤...";
+            rodVisual.classList.add('casting'); // 視覺效果
+
+            // 隨機等待時間 1~2.5秒
+            const waitTime = 1000 + Math.random() * 1500;
+
+            setTimeout(() => {
+                catchFish();
+                gameState.isFishing = false;
+                btnFish.disabled = false;
+                btnFish.textContent = "🎣 開始釣魚";
+                rodVisual.classList.remove('casting');
+            }, waitTime);
+        }
+
+        function catchFish() {
+            // 根據魚竿等級調整機率
+            // 等級越高，低階魚的權重稍微降低，高階魚權重增加
+            // 簡單算法：每個等級為稀有和傳說魚增加額外權重
+            
+            let currentPool = JSON.parse(JSON.stringify(fishTypes)); // 深拷貝
+            
+            // 稀有度加成邏輯
+            const bonus = (gameState.rodLevel - 1) * 2; 
+            
+            currentPool.forEach(fish => {
+                if (fish.rarity === 'rare') fish.weight += bonus;
+                if (fish.rarity === 'legendary') fish.weight += (bonus * 0.5);
+                // 減少垃圾的權重
+                if (fish.rarity === 'common') fish.weight = Math.max(1, fish.weight - bonus);
+            });
+
+            // 計算總權重
+            const totalWeight = currentPool.reduce((acc, fish) => acc + fish.weight, 0);
+            let random = Math.random() * totalWeight;
+            
+            let caughtFish = null;
+            for (const fish of currentPool) {
+                if (random < fish.weight) {
+                    caughtFish = fish;
+                    break;
+                }
+                random -= fish.weight;
+            }
+
+            // 加入魚簍
+            gameState.inventory.push(caughtFish);
+            
+            // UI 回饋
+            logMessage(`釣到了 [${caughtFish.name}]!`, caughtFish.rarity);
+            
+            let color = "white";
+            if(caughtFish.rarity === "rare") color = "#3498db";
+            if(caughtFish.rarity === "legendary") color = "#e74c3c";
+            
+            showFloatingText(`+ ${caughtFish.name}`, color);
+            updateUI();
+        }
+
+        // --- 賣魚邏輯 ---
+
+        function sellFish() {
+            if (gameState.inventory.length === 0) {
+                logMessage("魚簍是空的，沒東西賣！");
+                return;
+            }
+
+            let totalValue = 0;
+            gameState.inventory.forEach(fish => {
+                totalValue += fish.value;
+            });
+
+            gameState.money += totalValue;
+            gameState.inventory = []; // 清空
+            
+            logMessage(`全部賣出！獲得 $${totalValue}`);
+            showFloating
